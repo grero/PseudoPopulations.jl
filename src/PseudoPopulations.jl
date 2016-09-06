@@ -64,4 +64,15 @@ function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64
 	PseudoPopulation(Z_train,labels_train,used_indices)
 end
 
+function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64,1},1},exclude_indices::Array{Array{Int64,1},1})
+	Z2 = similar(Z)
+	labels2 = similar(labels)
+	for (i,(z,label,idx)) in enumerate(zip(Z,labels,exclude_indices))
+		use_idx = setdiff(1:size(z,1), idx)
+		Z2[i] = z[use_idx, :,:]
+		labels2[i] = label[use_idx]
+	end
+	PseudoPopulation(Z2,labels2)
+end
+
 end#mddule
