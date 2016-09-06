@@ -16,7 +16,7 @@ function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64
 	min_ntrials = minimum(map(length, labels))
 	ulabels = Array(Int64,0)
 	min_nlabels = Dict{Int64,Int64}()
-	label_counts = [similar(min_nlabels) for i in length(Z)]
+	label_counts = [similar(min_nlabels) for i in 1:length(Z)]
 	for (_labels,_label_count) in zip(labels,label_counts)
 		for l in _labels
 			_label_count[l] = get(_label_count, l, 0) + 1
@@ -28,7 +28,6 @@ function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64
 	for l in ulabels
 		min_nlabels[l] = minimum([get(_label_count,l,0) for _label_count in label_counts])
 	end
-	println(min_nlabels)
 	nlabels = length(ulabels)
 
 	ntrain_per_label = Dict([k=>round(Int,sample_ratio*v) for (k,v) in min_nlabels])
