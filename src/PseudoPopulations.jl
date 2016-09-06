@@ -11,7 +11,7 @@ Create a pseudopopulation by concatenating along the first dimension of `Z`, cre
 
 	function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64,1},1})
 """
-function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64,1},1})
+function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64,1},1},sample_ratio::Real=0.8)
 	nbins = size(Z[1],3)
 	min_ntrials = minimum(map(length, labels))
 	ulabels = Array(Int64,0)
@@ -29,7 +29,7 @@ function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64
 	sort!(ulabels)
 	nlabels = length(ulabels)
 
-	ntrain_per_label = Dict([k=>round(Int,0.8*v) for (k,v) in min_nlabels])
+	ntrain_per_label = Dict([k=>round(Int,sample_ratio*v) for (k,v) in min_nlabels])
 	ntrain = sum(values(ntrain_per_label))
 	#ntest_per_label = div(ntest,nlabels)
 	#ntest = ntest*per_label*nlabels
@@ -45,6 +45,9 @@ function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64
 		offset = 0
 		for (z,_label,_indices) in zip(Z, labels,used_indices)
 			_idx = find(_label.==l)
+			if isempty(_idx)
+				continue
+			end
 			shuffle!(_idx)
 			for j in 1:ntrain_per_label[l]
 				push!(_indices, _idx[j])
@@ -67,12 +70,18 @@ end
 function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64,1},1},exclude_indices::Array{Array{Int64,1},1})
 	Z2 = similar(Z)
 	labels2 = similar(labels)
+	use_idx = Array(Array{Int64,1},length(Z))
 	for (i,(z,label,idx)) in enumerate(zip(Z,labels,exclude_indices))
-		use_idx = setdiff(1:size(z,1), idx)
-		Z2[i] = z[use_idx, :,:]
-		labels2[i] = label[use_idx]
+		use_idx[i] = setdiff(1:size(z,1), idx)
+		Z2[i] = z[use_idx[i], :,:]
+		labels2[i] = label[use_idx[i]]
 	end
-	PseudoPopulation(Z2,labels2)
+	pp = PseudoPopulation(Z2,labels2,1.0)
+	#relabel
+	for (i,(l1,l2)) in enumerate(zip(use_idx, pp.index))
+		pp.index[i] = l1[l2] 
+	end
+	pp
 end
 
 end#mddule
