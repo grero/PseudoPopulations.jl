@@ -80,7 +80,7 @@ function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64
 	pp = PseudoPopulation(Z2,labels2,1.0)
 	#relabel
 	for (i,(l1,l2)) in enumerate(zip(use_idx, pp.index))
-		pp.index[i] = l1[l2] 
+		pp.index[i] = l1[l2]
 	end
 	pp
 end
