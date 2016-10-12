@@ -30,7 +30,7 @@ function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64
 	end
 	nlabels = length(ulabels)
 
-	ntrain_per_label = Dict([k=>round(Int,sample_ratio*v) for (k,v) in min_nlabels])
+	ntrain_per_label = Dict(k=>round(Int,sample_ratio*v) for (k,v) in min_nlabels)
 	ntrain = sum(values(ntrain_per_label))
 	#ntest_per_label = div(ntest,nlabels)
 	#ntest = ntest*per_label*nlabels
