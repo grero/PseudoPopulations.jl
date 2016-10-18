@@ -1,9 +1,45 @@
 module PseudoPopulations
 
-type PseudoPopulation
+abstract TrialSampler
+
+type UniqueTrialSampler <: TrialSampler
+	index::Array{Array{Int64,1},1}
+end
+
+type RepeatedTrialSampler <: TrialSampler
+	index::Array{Int64,2}
+end
+
+type PseudoPopulation{T<:TrialSampler}
 	X::Array{Float64,3}
 	label::Array{Int64,1}
-	index::Array{Array{Int64,1},1}
+	samples::T
+end
+
+function PseudoPopulation(Za::Array{Float64,3},trial_labels::Array{Array{Int64,1},1}, session_id::Array{Int64,1},trials_per_location=50)
+	ulabels = intersect(map(unique,trial_labels)...)
+	sort!(ulabels)
+	nlabels = length(ulabels)
+	ncells, ntrials, nbins = size(Za)
+	nn = trials_per_location
+	N = nn*nlabels #total number of trials
+	Xq = zeros(nbins, ncells, nn*nlabels)
+	trialidx = zeros(Int64, ncells,nn*nlabels)
+	labels = zeros(Int64,N)
+	for (li,l) in enumerate(ulabels)
+		for i in 1:nn
+			kk = (li-1)*nn + i
+			labels[kk] = l
+			for c in 1:ncells
+				_sidx = session_id[c]
+				_tlabels = trial_labels[_sidx]
+				_idx = max(1,findfirst(x->(x==l)&(rand()<0.5), _tlabels))
+				trialidx[c,kk] = _idx
+				Xq[:,c,kk] .= Za[c,_idx,:]
+			end
+		end
+	end
+	PseudoPopulation(permutedims(Xq,[3,2,1]), labels, RepeatedTrialSampler(trialidx))
 end
 
 """
@@ -65,8 +101,15 @@ function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64
 		end
 		toffset += ntrain_per_label[l]
 	end
-	PseudoPopulation(Z_train,labels_train,used_indices)
+	PseudoPopulation(Z_train,labels_train,UniqueTrialSampler(used_indices))
 end
+
+function PseudoPopulation(Z::Array{Array{Float64,3},1},labels, sample_ratio)
+	cellidx = Range{Int64}[1:size(z,2) for z in Z]
+	PseudoPopulation(Z, labels, cellidx, sample_ratio)
+end
+
+PseudoPopulation(Z,labels) = PseudoPopulation(Z,labels, 0.8)
 
 function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64,1},1},exclude_indices::Array{Array{Int64,1},1})
 	Z2 = similar(Z)
@@ -79,8 +122,8 @@ function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64
 	end
 	pp = PseudoPopulation(Z2,labels2,1.0)
 	#relabel
-	for (i,(l1,l2)) in enumerate(zip(use_idx, pp.index))
-		pp.index[i] = l1[l2]
+	for (i,(l1,l2)) in enumerate(zip(use_idx, pp.samples.index))
+		pp.samples.index[i] = l1[l2]
 	end
 	pp
 end
