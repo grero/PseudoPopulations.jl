@@ -1,16 +1,17 @@
 module PseudoPopulations
+using Random
 
-abstract TrialSampler
+abstract type TrialSampler end
 
-type UniqueTrialSampler <: TrialSampler
+struct UniqueTrialSampler <: TrialSampler
 	index::Array{Array{Int64,1},1}
 end
 
-type RepeatedTrialSampler <: TrialSampler
+struct RepeatedTrialSampler <: TrialSampler
 	index::Array{Int64,2}
 end
 
-type PseudoPopulation{T<:TrialSampler}
+struct PseudoPopulation{T<:TrialSampler}
 	X::Array{Float64,3}
 	label::Array{Int64,1}
 	samples::T
@@ -33,9 +34,14 @@ function PseudoPopulation(Za::Array{Float64,3},trial_labels::Array{Array{Int64,1
 			for c in 1:ncells
 				_sidx = session_id[c]
 				_tlabels = trial_labels[_sidx]
-				_idx = max(1,findfirst(x->(x==l)&(rand()<0.5), _tlabels))
-				trialidx[c,kk] = _idx
-				Xq[:,c,kk] .= Za[c,_idx,:]
+				_idx = findfirst(x->(x==l)&(rand()<0.5), _tlabels)
+				if _idx != nothing
+					trialidx[c,kk] = _idx
+					Xq[:,c,kk] .= Za[c,_idx,:]
+				else
+					trialidx[c,kk] = 1
+					Xq[:,c,kk] .= Za[c,1,:]
+				end
 			end
 		end
 	end
@@ -50,9 +56,9 @@ Create a pseudopopulation by concatenating along the first dimension of `Z`, cre
 function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64,1},1},sample_ratio::Real=0.8)
 	nbins = size(Z[1],3)
 	min_ntrials = minimum(map(length, labels))
-	ulabels = Array(Int64,0)
+	ulabels = Int64[]
 	min_nlabels = Dict{Int64,Int64}()
-	label_counts = [similar(min_nlabels) for i in 1:length(Z)]
+	label_counts = [typeof(min_nlabels)() for i in 1:length(Z)]
 	for (_labels,_label_count) in zip(labels,label_counts)
 		for l in _labels
 			_label_count[l] = get(_label_count, l, 0) + 1
@@ -74,14 +80,14 @@ function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64
 	ncells = sum(x->size(x,2), Z)
 	#training set
 	Z_train = zeros(ntrain,ncells,nbins)
-	labels_train = zeros(Int64,ntrain)
-	used_indices = [Array(Int64,0) for i in 1:length(Z)]
+	labels_train = fill(0,ntrain)
+	used_indices = [Int64[] for i in 1:length(Z)]
 	#Z_test = zeros(ntest,nbins,ncells)
 	toffset = 0
 	for l in ulabels
 		offset = 0
 		for (z,_label,_indices) in zip(Z, labels,used_indices)
-			_idx = find(_label.==l)
+			_idx = findall(_label.==l)
 			if isempty(_idx)
 				continue
 			end
@@ -114,7 +120,7 @@ PseudoPopulation(Z,labels) = PseudoPopulation(Z,labels, 0.8)
 function PseudoPopulation(Z::Array{Array{Float64,3},1},labels::Array{Array{Int64,1},1},exclude_indices::Array{Array{Int64,1},1})
 	Z2 = similar(Z)
 	labels2 = similar(labels)
-	use_idx = Array(Array{Int64,1},length(Z))
+	use_idx = Vector{Vector{Int64}}(undef, length(Z))
 	for (i,(z,label,idx)) in enumerate(zip(Z,labels,exclude_indices))
 		use_idx[i] = setdiff(1:size(z,1), idx)
 		Z2[i] = z[use_idx[i], :,:]
